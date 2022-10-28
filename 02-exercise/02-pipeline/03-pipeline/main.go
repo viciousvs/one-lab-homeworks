@@ -1,6 +1,7 @@
 // generator() -> square() ->
-//														-> merge -> print
-//             -> square() ->
+//
+//															-> merge -> print
+//	            -> square() ->
 package main
 
 import (
@@ -10,12 +11,11 @@ import (
 
 func generator(nums ...int) <-chan int {
 	out := make(chan int)
-
 	go func() {
+		defer close(out)
 		for _, n := range nums {
 			out <- n
 		}
-		close(out)
 	}()
 	return out
 }
@@ -23,23 +23,27 @@ func generator(nums ...int) <-chan int {
 func square(in <-chan int) <-chan int {
 	out := make(chan int)
 	go func() {
+		defer close(out)
 		for n := range in {
 			out <- n * n
 		}
-		close(out)
 	}()
 	return out
 }
 
-func merge(cs ...<-chan int) <-chan int {
+func merge(quit <-chan struct{}, cs ...<-chan int) <-chan int {
 	out := make(chan int)
 	var wg sync.WaitGroup
 
 	output := func(c <-chan int) {
+		defer wg.Done()
 		for n := range c {
-			out <- n
+			select {
+			case out <- n:
+			case <-quit:
+				return
+			}
 		}
-		wg.Done()
 	}
 
 	wg.Add(len(cs))
@@ -60,9 +64,12 @@ func main() {
 	c1 := square(in)
 	c2 := square(in)
 
-	out := merge(c1, c2)
+	quit := make(chan struct{})
+	out := merge(quit, c1, c2)
 
 	// TODO: cancel goroutines after receiving one value.
 
+	fmt.Println(<-out)
+	quit <- struct{}{}
 	fmt.Println(<-out)
 }

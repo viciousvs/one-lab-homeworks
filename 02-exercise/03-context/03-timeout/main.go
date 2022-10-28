@@ -1,11 +1,15 @@
 package main
 
 import (
+	"context"
 	"io"
 	"log"
 	"net/http"
 	"os"
+	"time"
 )
+
+const timeout = 15 * time.Second
 
 func main() {
 
@@ -15,7 +19,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	ctx, cancel := context.WithTimeout(req.Context(), timeout)
+	defer cancel()
 
+	req = req.WithContext(ctx)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		log.Println("ERROR:", err)
