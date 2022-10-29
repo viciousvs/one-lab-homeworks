@@ -1,6 +1,7 @@
 package counting
 
 import (
+	"fmt"
 	"log"
 	"math/rand"
 	"runtime"
@@ -37,21 +38,25 @@ func Add(numbers []int) int64 {
 
 // AddConcurrent - concurrent code to add numbers
 func AddConcurrent(numbers []int) int64 {
+	fmt.Println(WorkerCount)
 	var sum int64
+	var wg sync.WaitGroup
 
 	result := make(chan int64)
 	defer close(result)
 
+	wg.Add(1)
 	go func() {
-		for {
-			select {
-			case s := <-result:
-				sum += s
+		defer wg.Done()
+		i := 0
+		for s := range result {
+			sum += s
+			i++
+			if i == WorkerCount {
+				return
 			}
 		}
 	}()
-
-	var wg sync.WaitGroup
 
 	workersWorkCount := len(numbers) / WorkerCount
 
